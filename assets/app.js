@@ -152,7 +152,7 @@
         el("span", { class: "tile-num", text: String(i + 1) }),
         el("span", { class: "tile-label", text: img.t })
       ]);
-      tile.addEventListener("click", function () { open(i, true); });
+      tile.addEventListener("click", function () { open(i); });
       grid.appendChild(tile);
     });
 
@@ -294,8 +294,12 @@
       startLoop();
     }
 
+    /* Deliberately NOT guarded by `if (!playing) return;` the way play() is:
+       callers use this to *establish* the paused state, and the button label
+       has to be written even when nothing was playing. Opening a step now lands
+       here rather than in play(), so an early return would leave the button
+       blank. */
     function pause() {
-      if (!playing) return;
       playing = false;
       cancelAnimationFrame(rafId);
       playBtn.setAttribute("data-state", "paused");
@@ -307,6 +311,12 @@
     /* --- open / close --------------------------------------------------- */
     var lastFocused = null;
 
+    /* Opening lands PAUSED unless the caller explicitly says otherwise, and the
+       only caller that does is the "Mulai presentasi" button -- a deliberate
+       start, with a label that promises playback. Clicking a single thumbnail
+       is a request to look at that one step, so auto-advancing out from under
+       the reader is the puzzling part. Deep links (…-pu.html#36) count as
+       thumbnails here: they are pasted into chats for someone to read. */
     function open(i, autoplay) {
       lastFocused = document.activeElement;
       viewer.setAttribute("data-open", "true");
@@ -393,7 +403,7 @@
     /* Deep link: sihalal-pu.html#12 opens straight to step 12. */
     var hash = parseInt((location.hash || "").replace("#", ""), 10);
     if (!isNaN(hash) && hash >= 1 && hash <= images.length) {
-      open(hash - 1, !reduceMotion);
+      open(hash - 1);
     }
   }
 

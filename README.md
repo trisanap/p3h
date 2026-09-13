@@ -127,6 +127,10 @@ would show nothing but browser chrome.
 ## The viewer
 
 Click any thumbnail (or **Mulai presentasi**) to open the presentation overlay.
+**Thumbnails and deep links open paused** — clicking one is a request to read
+that step, not to start a slideshow, and auto-advancing out from under a reader
+is the puzzling part. Only **Mulai presentasi** starts playing on its own, since
+that is what its label promises. From anywhere else, ▶ Putar begins playback.
 
 | Key | Action |
 |---|---|
@@ -135,8 +139,8 @@ Click any thumbnail (or **Mulai presentasi**) to open the presentation overlay.
 | `F` | fullscreen |
 | `Esc` | close |
 
-Auto-advance defaults to 5 seconds; the control bar has 3 / 5 / 8 / 12 s.
-Playback pauses automatically when the tab loses focus.
+Once playing, auto-advance defaults to 5 seconds; the control bar has
+3 / 5 / 8 / 12 s. Playback pauses automatically when the tab loses focus.
 
 Deep links work: `sihalal-pu.html#36` opens straight to step 36, so you can
 paste a link to a specific step in a chat or ticket.
