@@ -36,6 +36,11 @@
     '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/>' +
     '<path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg>';
 
+  /* Inline play glyph for video cards. */
+  var PLAY_GLYPH =
+    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M9 6.5v11l9-5.5z"/></svg>';
+
   /* ----------------------------------------------------------- landing page */
 
   function initLanding() {
@@ -64,6 +69,27 @@
           el("div", { class: "card-meta" }, [
             el("span", { class: "pill", text: g.images.length + " langkah" }),
             el("span", { text: "Buka presentasi →" })
+          ])
+        ])
+      );
+    });
+
+    /* Video cards: a poster frame with a play glyph, linking to a page that
+       hosts the video. Only the poster loads here -- the video itself is not
+       fetched until that page is opened. */
+    (window.VIDEOS || []).forEach(function (v) {
+      mount.appendChild(
+        el("a", { class: "card card-video", href: v.page }, [
+          el("div", { class: "card-poster" }, [
+            el("img", { src: v.poster, alt: "", loading: "lazy" }),
+            el("span", { class: "card-play", html: PLAY_GLYPH }),
+            v.duration ? el("span", { class: "card-dur", text: v.duration }) : null
+          ]),
+          el("h2", { text: v.title }),
+          el("p", { text: v.subtitle || "" }),
+          el("div", { class: "card-meta" }, [
+            el("span", { class: "pill", text: "Video" }),
+            el("span", { text: "Tonton →" })
           ])
         ])
       );
@@ -371,10 +397,55 @@
     }
   }
 
+  /* ------------------------------------------------------------ video page */
+
+  function initVideo() {
+    var key = document.body.getAttribute("data-video");
+    var videos = window.VIDEOS || [];
+    var v = videos.filter(function (x) { return x.key === key; })[0] || videos[0];
+    var mount = document.querySelector("[data-video-mount]");
+    if (!v || !mount) return;
+
+    var h1 = document.querySelector("[data-title]");
+    var sub = document.querySelector("[data-subtitle]");
+    if (h1) h1.textContent = v.title;
+    if (sub) sub.textContent = v.subtitle || "";
+
+    /* width/height give the element its 16:9 box up front, so the layout does
+       not jump when metadata arrives. preload="metadata" fetches just enough
+       to show the poster and the runtime -- the video waits for a click. */
+    var player = el("video", {
+      class: "player",
+      controls: "controls",
+      playsinline: "playsinline",
+      preload: "metadata",
+      poster: v.poster,
+      width: "1276",
+      height: "718"
+    });
+    player.muted = true;   /* property as well as attribute: the attribute
+                              alone is not reliably honoured after a reload */
+    player.appendChild(el("source", { src: v.src, type: "video/mp4" }));
+    player.appendChild(document.createTextNode(
+      "Browser Anda tidak mendukung pemutar video."));
+    mount.appendChild(el("div", { class: "player-wrap" }, [player]));
+
+    var src = document.querySelector("[data-source]");
+    if (src && v.source_url) {
+      src.appendChild(document.createTextNode("Sumber: "));
+      src.appendChild(el("a", {
+        href: v.source_url, target: "_blank", rel: "noopener noreferrer",
+        text: v.site + " ↗"
+      }));
+      if (v.duration) src.appendChild(document.createTextNode(" · " + v.duration));
+    }
+  }
+
   /* ------------------------------------------------------------------ boot */
 
   function boot() {
     if (document.body.getAttribute("data-gallery")) initGallery();
+    else if (document.body.getAttribute("data-video")) initVideo();
     else initLanding();
   }
 

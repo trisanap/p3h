@@ -3,14 +3,15 @@
 Static gallery of step-by-step screenshots for the SiHalal app (`ptsp.halal.go.id`),
 with a presentation-mode viewer for walking through the steps.
 
-Two guides:
+Two screenshot guides and one screen recording:
 
-| Guide | Page | Steps |
+| Guide | Page | |
 |---|---|---|
-| Pendaftaran Pelaku Usaha (PU) | `sihalal-pu.html` | 58 |
-| Verifikasi P3H | `sihalal-p3h.html` | 9 |
+| Pendaftaran Pelaku Usaha (PU) | `sihalal-pu.html` | 58 steps |
+| Verifikasi P3H | `sihalal-p3h.html` | 9 steps |
+| Tutor NIB lewat OSS | `nib-tutor.html` | 3:32 video |
 
-`index.html` is the landing page that links to both.
+`index.html` is the landing page that links to all of them.
 
 ## Layout
 
@@ -18,13 +19,16 @@ Two guides:
 index.html            landing page
 sihalal-pu.html       PU gallery
 sihalal-p3h.html      P3H gallery
-build.py              regenerates img/ + assets/manifest.js from the source folders
+nib-tutor.html        NIB screen recording
+build.py              regenerates img/, vid/ and assets/manifest.js from the sources
 assets/
   style.css           all styling
-  app.js              gallery grid + presentation player
+  app.js              gallery grid + presentation player + video page
   manifest.js         GENERATED — do not edit by hand
 img/pu/*.png          copied screenshots
 img/p3h/*.png
+img/vid/*.jpg         video poster frames (committed by hand, not generated)
+vid/*.mp4             copied videos, content-hashed filenames
 ```
 
 ## Rebuilding
@@ -76,6 +80,50 @@ These render with a glyph panel in place of the thumbnail strip, open in a new
 tab, and are not galleries — no images are copied and no viewer is involved.
 An empty list removes them entirely.
 
+### Adding or replacing a video
+
+Add an entry to `VIDEOS` in `build.py`:
+
+```python
+VIDEOS = {
+    "nib": {
+        "title": "Tutor NIB lewat OSS",
+        "subtitle": "Shown on the card and above the player.",
+        "src": "/home/trisan/Pictures/nib-tutor/igexport-DYORPypS1SA.mp4",
+        "poster": "img/vid/nib-poster.jpg",
+        "page": "nib-tutor.html",
+        "source_url": "https://www.instagram.com/reel/DYORPypS1SA/",
+        "site": "instagram.com",
+    },
+}
+```
+
+The file is copied to `vid/<key>-<hash>.mp4`, hashed by content. That is what
+makes the year-long cache in `_headers` safe, and why `nib-tutor.html` reads
+its path from the manifest rather than hardcoding it. Each build deletes any
+older copy of the same video, so swapping one does not strand a 10 MB orphan.
+
+Runtime comes from the MP4's own `mvhd` atom, not from a config value — the
+badge cannot drift from the file. An unparseable file simply loses the badge.
+
+The player is click-to-start (`preload="metadata"`), so the landing card
+fetches only the poster; the video downloads when someone presses play. It also
+sets `muted`, which the reels require anyway — they carry licensed music.
+
+**Posters** are cropped stills committed under `img/vid/`, not generated — the
+crop is a judgement call about where the browser chrome ends:
+
+```bash
+python3 -c "
+from PIL import Image
+im = Image.open('frame.jpg')
+im.crop((0, 78, im.width, im.height)).save('img/vid/nib-poster.jpg', quality=82)"
+```
+
+78px is the tab strip plus URL bar at 1276×718. Cropping it matters more than
+it looks: card previews use `object-position: top left`, so an uncropped poster
+would show nothing but browser chrome.
+
 ## The viewer
 
 Click any thumbnail (or **Mulai presentasi**) to open the presentation overlay.
@@ -106,9 +154,11 @@ in a browser.
 
 The whole tree is static — commit it and serve the repo root. On Cloudflare
 Workers, point static assets at the repository root; `_headers` sets caching
-(a day for `img/`, five minutes for `assets/`). Those are deliberately short:
-filenames are stable step numbers rather than content hashes, so re-capturing
-a screenshot reuses the same URL and a long cache would serve the old one.
+(a day for `img/`, five minutes for `assets/`, a year and immutable for
+`vid/`). The first two are deliberately short: filenames are stable step
+numbers rather than content hashes, so re-capturing a screenshot reuses the
+same URL and a long cache would serve the old one. Videos are the exception —
+`build.py` names those by content hash, so their URL changes with the file.
 
 Each path gets exactly one `Cache-Control` rule on purpose — when several
 patterns match, Cloudflare merges their headers and comma-joins duplicates,

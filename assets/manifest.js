@@ -286,6 +286,20 @@ window.GALLERIES = {
   }
 };
 
+window.VIDEOS = [
+  {
+    "key": "nib",
+    "title": "Tutor NIB lewat OSS",
+    "subtitle": "Alur perekaman NIB perseorangan pada sistem OSS, direkam langsung dari layar.",
+    "page": "nib-tutor.html",
+    "poster": "img/vid/nib-poster.jpg",
+    "src": "vid/nib-886b8d27b7.mp4",
+    "source_url": "https://www.instagram.com/reel/DYORPypS1SA/",
+    "site": "instagram.com",
+    "duration": "3:32"
+  }
+];
+
 window.EXTERNAL_LINKS = [
   {
     "title": "Langkah Verval Pendamping PPH",

@@ -12,9 +12,14 @@ import json
 import os
 import re
 import shutil
+import struct
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Image types picked up from a source folder. JPEG is here because frames
+# extracted from a screen recording come out as .jpg, not .png.
+IMAGE_EXTS = (".png", ".jpg", ".jpeg")
 
 # Source folders on this machine. Change these if you move the originals.
 SOURCES = {
@@ -61,6 +66,27 @@ EXTERNAL_LINKS = [
         "tag": "Panduan",
     },
 ]
+
+# Videos hosted in this repo. Each is copied to vid/ under a CONTENT-HASHED
+# name, which is what lets _headers give /vid/* a long immutable cache: swap
+# the file and the URL changes, so no cache can serve the old one. (The image
+# folders use stable step numbers on purpose, so their caches stay short.)
+VIDEOS = {
+    "nib": {
+        "title": "Tutor NIB lewat OSS",
+        "subtitle": "Alur perekaman NIB perseorangan pada sistem OSS, "
+                    "direkam langsung dari layar.",
+        "src": "/home/trisan/Pictures/nib-tutor/igexport-DYORPypS1SA.mp4",
+        "poster": "img/vid/nib-poster.jpg",
+        "page": "nib-tutor.html",
+        "source_url": "https://www.instagram.com/reel/DYORPypS1SA/",
+        "site": "instagram.com",
+    },
+}
+
+# Poster frames are cropped stills, committed under img/ rather than generated
+# here: the crop is a one-off judgement call, not something to recompute.
+# See README if you need to redo one.
 
 # Words that should keep their original casing in generated captions.
 ACRONYMS = {
@@ -126,6 +152,109 @@ def humanize(stem):
     return " · ".join([step] + words)
 
 
+def read_atom(fh):
+    """(total_size, 4-byte type) for the atom at the cursor, or (None, None)."""
+    head = fh.read(8)
+    if len(head) < 8:
+        return None, None
+    size, kind = struct.unpack(">I4s", head)
+    if size == 1:                                   # 64-bit "largesize" follows
+        size = struct.unpack(">Q", fh.read(8))[0]
+    if size < 8:                                    # malformed, or size==0
+        return None, None
+    return size, kind
+
+
+def mvhd_seconds(fh, moov_end):
+    """Runtime in seconds from the mvhd atom that sits inside moov."""
+    while fh.tell() < moov_end:
+        pos = fh.tell()
+        size, kind = read_atom(fh)
+        if size is None:
+            return None
+        if kind == b"mvhd":
+            version = fh.read(1)[0]
+            fh.read(3)                              # flags
+            if version == 1:
+                fh.read(16)                         # created + modified (64-bit)
+                timescale = struct.unpack(">I", fh.read(4))[0]
+                duration = struct.unpack(">Q", fh.read(8))[0]
+            else:
+                fh.read(8)                          # created + modified (32-bit)
+                timescale = struct.unpack(">I", fh.read(4))[0]
+                duration = struct.unpack(">I", fh.read(4))[0]
+            return duration / timescale if timescale else None
+        fh.seek(pos + size)
+    return None
+
+
+def mp4_duration(path):
+    """Runtime in seconds, read out of the MP4 itself.
+
+    Derived rather than configured so a card can never advertise a runtime the
+    file no longer has: trim or replace the video and this follows. Returns
+    None if the file is not a parseable MP4, and the duration badge is dropped.
+    """
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            end = fh.tell()
+            fh.seek(0)
+            while fh.tell() < end:
+                pos = fh.tell()
+                size, kind = read_atom(fh)
+                if size is None:
+                    break
+                if kind == b"moov":
+                    return mvhd_seconds(fh, pos + size)
+                fh.seek(pos + size)
+    except (OSError, struct.error):
+        return None
+    return None
+
+
+def build_video(key, spec):
+    src = spec["src"]
+    if not os.path.isfile(src):
+        print(f"  ! video missing, skipping: {src}", file=sys.stderr)
+        return None
+
+    out_dir = os.path.join(ROOT, "vid")
+    os.makedirs(out_dir, exist_ok=True)
+    ext = os.path.splitext(src)[1].lower() or ".mp4"
+    name = f"{key}-{digest(src).hex()[:10]}{ext}"
+    dst = os.path.join(out_dir, name)
+    if not os.path.exists(dst):
+        shutil.copy2(src, dst)
+
+    # An earlier hash of the same video is dead weight: 10 MB in git as well as
+    # on the deployed site, and nothing links to it once the manifest moves on.
+    removed = 0
+    for existing in os.listdir(out_dir):
+        if existing.startswith(key + "-") and existing != name:
+            os.remove(os.path.join(out_dir, existing))
+            removed += 1
+
+    entry = {
+        "key": key,
+        "title": spec["title"],
+        "subtitle": spec["subtitle"],
+        "page": spec["page"],
+        "poster": spec["poster"],
+        "src": f"vid/{name}",
+        "source_url": spec["source_url"],
+        "site": spec["site"],
+    }
+    secs = mp4_duration(dst)
+    if secs:
+        entry["duration"] = f"{int(secs) // 60}:{int(secs) % 60:02d}"
+
+    mb = os.path.getsize(dst) / 1e6
+    print(f"  {key}: vid/{name} ({mb:.1f} MB, {entry.get('duration', '?')}, "
+          f"{removed} stale removed)")
+    return entry
+
+
 def build_gallery(key, spec):
     src_dir = SOURCES[key]
     if not os.path.isdir(src_dir):
@@ -137,7 +266,7 @@ def build_gallery(key, spec):
     os.makedirs(out_dir, exist_ok=True)
 
     sources = sorted(
-        (f for f in os.listdir(src_dir) if f.lower().endswith(".png")),
+        (f for f in os.listdir(src_dir) if f.lower().endswith(IMAGE_EXTS)),
         key=natural_key,
     )
 
@@ -179,17 +308,22 @@ def main():
         if result:
             manifest[key] = result
 
+    videos = [v for v in (build_video(k, s) for k, s in VIDEOS.items()) if v]
+
     out = os.path.join(ROOT, "assets", "manifest.js")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write("/* Generated by build.py -- do not edit by hand. */\n")
         fh.write("window.GALLERIES = ")
         json.dump(manifest, fh, ensure_ascii=False, indent=2)
         fh.write(";\n\n")
+        fh.write("window.VIDEOS = ")
+        json.dump(videos, fh, ensure_ascii=False, indent=2)
+        fh.write(";\n\n")
         fh.write("window.EXTERNAL_LINKS = ")
         json.dump(EXTERNAL_LINKS, fh, ensure_ascii=False, indent=2)
         fh.write(";\n")
-    print(f"  wrote assets/manifest.js "
-          f"({len(manifest)} galleries, {len(EXTERNAL_LINKS)} external links)")
+    print(f"  wrote assets/manifest.js ({len(manifest)} galleries, "
+          f"{len(videos)} videos, {len(EXTERNAL_LINKS)} external links)")
     return 0
 
 

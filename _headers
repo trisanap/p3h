@@ -4,14 +4,19 @@
 # and comma-joins duplicates. Two rules setting Cache-Control on the same path
 # would produce an invalid header, so each path gets exactly one rule.
 #
-# Filenames here are stable step numbers, not content hashes, so re-capturing a
-# screenshot reuses the same URL -- caches are kept short on purpose.
+# Image filenames are stable step numbers rather than content hashes, so
+# re-capturing a screenshot reuses the same URL and those caches stay short.
+# Videos are the opposite -- build.py names them with a content hash, so the
+# URL changes whenever the file does and they can be cached indefinitely.
 
 /img/*
   Cache-Control: public, max-age=86400
 
 /assets/*
   Cache-Control: public, max-age=300
+
+/vid/*
+  Cache-Control: public, max-age=31536000, immutable
 
 /*
   X-Content-Type-Options: nosniff
