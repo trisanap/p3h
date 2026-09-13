@@ -421,17 +421,44 @@
     if (h1) h1.textContent = v.title;
     if (sub) sub.textContent = v.subtitle || "";
 
-    /* width/height give the element its 16:9 box up front, so the layout does
-       not jump when metadata arrives. preload="metadata" fetches just enough
-       to show the poster and the runtime -- the video waits for a click. */
+    /* width/height give the element its box up front, so the layout does not
+       jump when metadata arrives. They come from the file's own tkhd atom
+       (build.py) rather than a constant -- the recordings are not all the
+       same shape, and a guessed ratio is only correct until it is not.
+       preload="metadata" fetches just enough to show the poster and the
+       runtime; the video waits for a click. */
+    /* Optional written companion, rendered above the video. On verval-p3h.html
+       the page's whole point is these two items: the written guide, then the
+       recording. */
+    var art = document.querySelector("[data-article]");
+    if (art && v.article) {
+      art.appendChild(
+        el("a", {
+          class: "card card-external",
+          href: v.article.url,
+          target: "_blank",
+          rel: "noopener noreferrer"
+        }, [
+          el("div", { class: "card-icon", html: EXTERNAL_ICON }),
+          el("h2", { text: v.article.title }),
+          el("p", { text: v.article.subtitle || "" }),
+          el("div", { class: "card-meta" }, [
+            el("span", { class: "pill pill-alt", text: "Panduan tertulis" }),
+            el("span", { text: (v.article.site || "") + " ↗" }),
+            el("span", { class: "visually-hidden", text: " (buka di tab baru)" })
+          ])
+        ])
+      );
+    }
+
     var player = el("video", {
       class: "player",
       controls: "controls",
       playsinline: "playsinline",
       preload: "metadata",
       poster: v.poster,
-      width: "1276",
-      height: "718"
+      width: v.w || 1280,
+      height: v.h || 720
     });
     player.muted = true;   /* property as well as attribute: the attribute
                               alone is not reliably honoured after a reload */

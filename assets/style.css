@@ -325,6 +325,11 @@ h1 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 10px; }
 
 /* ---------- Video page ---------- */
 
+/* The written companion above the player. Reuses .card, so it needs the
+   spacing a grid parent would otherwise have given it. */
+.article-slot { margin-top: 30px; }
+.article-slot:empty { display: none; }
+
 .player-wrap {
   margin: 28px 0 16px;
   border: 1px solid var(--border);
@@ -337,6 +342,12 @@ h1 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 10px; }
   display: block;
   width: 100%;
   height: auto;
+  /* Posters are crops of the frame -- they drop the browser chrome and, on
+     verval-p3h, the webcam inset -- so they are a different shape from the
+     video itself. Stretched to fill, the p3h poster gains ~15% height and
+     faces visibly widen until playback replaces it. contain letterboxes it
+     instead; the real frames match the box exactly, so the bars vanish then. */
+  object-fit: contain;
 }
 
 .source {

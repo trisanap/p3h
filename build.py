@@ -56,16 +56,12 @@ OVERRIDES = {"pu": {}, "p3h": {}}
 # Extra cards on the landing page that link to a page hosted elsewhere.
 # These are not galleries -- no images are copied and no viewer is opened.
 # Add another dict here to add another card.
-EXTERNAL_LINKS = [
-    {
-        "title": "Langkah Verval Pendamping PPH",
-        "subtitle": "Cara proses verval pendampingan PPH: berada di lokasi produksi "
-                    "bersama Pelaku Usaha / Penyelia Halal.",
-        "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
-        "site": "p3jph.biz.id",
-        "tag": "Panduan",
-    },
-]
+#
+# Currently empty: the "Langkah Verval Pendamping PPH" card used to open
+# p3jph.biz.id in a new tab, but that written guide is now one of the two items
+# ON verval-p3h.html, so the card points there instead and the landing page
+# stays a clean 2x2. An empty list removes these cards entirely.
+EXTERNAL_LINKS = []
 
 # Videos hosted in this repo. Each is copied to vid/ under a CONTENT-HASHED
 # name, which is what lets _headers give /vid/* a long immutable cache: swap
@@ -81,6 +77,26 @@ VIDEOS = {
         "page": "nib-tutor.html",
         "source_url": "https://www.instagram.com/reel/DYORPypS1SA/",
         "site": "instagram.com",
+    },
+    "p3h": {
+        "title": "Verval Pendamping PPH",
+        "subtitle": "Proses verval pendampingan PPH: berada di lokasi produksi "
+                    "bersama Pelaku Usaha / Penyelia Halal.",
+        "src": "/home/trisan/Pictures/sihalal-p3h/verval-p3h-trim.mp4",
+        "poster": "img/vid/verval-poster.jpg",
+        "page": "verval-p3h.html",
+        "source_url": "https://www.youtube.com/watch?v=K9s_9yGcGF4",
+        "site": "youtube.com",
+        # The written guide this page accompanies. Rendered as the first of the
+        # page's two items, above the video.
+        "article": {
+            "title": "Langkah Verval Pendamping PPH",
+            "subtitle": "Panduan tertulis: cara proses verval pendampingan PPH, "
+                        "berada di lokasi produksi bersama Pelaku Usaha / "
+                        "Penyelia Halal.",
+            "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
+            "site": "p3jph.biz.id",
+        },
     },
 }
 
@@ -213,6 +229,71 @@ def mp4_duration(path):
     return None
 
 
+def tkhd_dims(fh, trak_end):
+    """(width, height) from the tkhd atom inside one trak, or None.
+
+    tkhd is fixed-layout after the version byte: a creation..duration block
+    that is 20 bytes at version 0 and 32 at version 1, then reserved, layer
+    and volume, then the 9-entry transform matrix, then width and height as
+    16.16 fixed point. Seeking past the matrix is what lands on them.
+    """
+    while fh.tell() < trak_end:
+        pos = fh.tell()
+        size, kind = read_atom(fh)
+        if size is None:
+            return None
+        if kind == b"tkhd":
+            version = fh.read(1)[0]
+            fh.read(3)                                  # flags
+            fh.read(32 if version == 1 else 20)         # created..duration
+            fh.read(8)                                  # reserved
+            fh.read(8)                                  # layer, group, volume
+            fh.read(36)                                 # matrix
+            w = struct.unpack(">I", fh.read(4))[0] / 65536
+            h = struct.unpack(">I", fh.read(4))[0] / 65536
+            return w, h
+        fh.seek(pos + size)
+    return None
+
+
+def mp4_dims(path):
+    """Pixel size of the video track, read from moov/trak/tkhd.
+
+    The <video> element wants these before a byte of media loads, so it can
+    reserve a box of the right shape -- a wrong ratio reflows the whole page
+    the moment metadata arrives. Audio tracks report 0x0, so the first trak
+    with real dimensions wins. None if the file is not a parseable MP4, and
+    the caller falls back to a nominal 16:9.
+    """
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            end = fh.tell()
+            fh.seek(0)
+            while fh.tell() < end:
+                pos = fh.tell()
+                size, kind = read_atom(fh)
+                if size is None:
+                    break
+                if kind == b"moov":
+                    moov_end = pos + size
+                    while fh.tell() < moov_end:
+                        trak = fh.tell()
+                        tsize, tkind = read_atom(fh)
+                        if tsize is None:
+                            return None
+                        if tkind == b"trak":
+                            dims = tkhd_dims(fh, trak + tsize)
+                            if dims and dims[0] and dims[1]:
+                                return dims
+                        fh.seek(trak + tsize)
+                    return None
+                fh.seek(pos + size)
+    except (OSError, struct.error):
+        return None
+    return None
+
+
 def build_video(key, spec):
     src = spec["src"]
     if not os.path.isfile(src):
@@ -245,9 +326,14 @@ def build_video(key, spec):
         "source_url": spec["source_url"],
         "site": spec["site"],
     }
+    if spec.get("article"):
+        entry["article"] = spec["article"]
     secs = mp4_duration(dst)
     if secs:
         entry["duration"] = f"{int(secs) // 60}:{int(secs) % 60:02d}"
+    dims = mp4_dims(dst)
+    if dims:
+        entry["w"], entry["h"] = int(dims[0]), int(dims[1])
 
     mb = os.path.getsize(dst) / 1e6
     print(f"  {key}: vid/{name} ({mb:.1f} MB, {entry.get('duration', '?')}, "

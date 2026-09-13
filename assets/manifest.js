@@ -296,16 +296,29 @@ window.VIDEOS = [
     "src": "vid/nib-886b8d27b7.mp4",
     "source_url": "https://www.instagram.com/reel/DYORPypS1SA/",
     "site": "instagram.com",
-    "duration": "3:32"
+    "duration": "3:32",
+    "w": 1276,
+    "h": 718
+  },
+  {
+    "key": "p3h",
+    "title": "Verval Pendamping PPH",
+    "subtitle": "Proses verval pendampingan PPH: berada di lokasi produksi bersama Pelaku Usaha / Penyelia Halal.",
+    "page": "verval-p3h.html",
+    "poster": "img/vid/verval-poster.jpg",
+    "src": "vid/p3h-55e83920a1.mp4",
+    "source_url": "https://www.youtube.com/watch?v=K9s_9yGcGF4",
+    "site": "youtube.com",
+    "article": {
+      "title": "Langkah Verval Pendamping PPH",
+      "subtitle": "Panduan tertulis: cara proses verval pendampingan PPH, berada di lokasi produksi bersama Pelaku Usaha / Penyelia Halal.",
+      "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
+      "site": "p3jph.biz.id"
+    },
+    "duration": "11:57",
+    "w": 1920,
+    "h": 1032
   }
 ];
 
-window.EXTERNAL_LINKS = [
-  {
-    "title": "Langkah Verval Pendamping PPH",
-    "subtitle": "Cara proses verval pendampingan PPH: berada di lokasi produksi bersama Pelaku Usaha / Penyelia Halal.",
-    "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
-    "site": "p3jph.biz.id",
-    "tag": "Panduan"
-  }
-];
+window.EXTERNAL_LINKS = [];

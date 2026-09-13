@@ -3,13 +3,14 @@
 Static gallery of step-by-step screenshots for the SiHalal app (`ptsp.halal.go.id`),
 with a presentation-mode viewer for walking through the steps.
 
-Two screenshot guides and one screen recording:
+Two screenshot guides and two screen recordings:
 
 | Guide | Page | |
 |---|---|---|
 | Pendaftaran Pelaku Usaha (PU) | `sihalal-pu.html` | 58 steps |
 | Verifikasi P3H | `sihalal-p3h.html` | 9 steps |
 | Tutor NIB lewat OSS | `nib-tutor.html` | 3:32 video |
+| Verval Pendamping PPH | `verval-p3h.html` | video + written guide |
 
 `index.html` is the landing page that links to all of them.
 
@@ -20,6 +21,7 @@ index.html            landing page
 sihalal-pu.html       PU gallery
 sihalal-p3h.html      P3H gallery
 nib-tutor.html        NIB screen recording
+verval-p3h.html       Verval PPH: written guide + screen recording
 build.py              regenerates img/, vid/ and assets/manifest.js from the sources
 assets/
   style.css           all styling
@@ -98,13 +100,21 @@ VIDEOS = {
 }
 ```
 
+An entry may also carry an `article` block — a written companion rendered as the
+page's first item, above the player. `verval-p3h.html` uses it for the
+p3jph.biz.id guide. Omit it and the page is just the video.
+
 The file is copied to `vid/<key>-<hash>.mp4`, hashed by content. That is what
 makes the year-long cache in `_headers` safe, and why `nib-tutor.html` reads
 its path from the manifest rather than hardcoding it. Each build deletes any
 older copy of the same video, so swapping one does not strand a 10 MB orphan.
 
-Runtime comes from the MP4's own `mvhd` atom, not from a config value — the
-badge cannot drift from the file. An unparseable file simply loses the badge.
+Runtime comes from the MP4's own `mvhd` atom and the player's `width`/`height`
+from its `tkhd`, not from config values — the badge cannot drift from the file,
+and the box the `<video>` reserves before loading is the file's real shape
+rather than a guess. The two recordings are not the same shape (1276×718 and
+1920×1032), so a hardcoded pair is correct for exactly one of them. An
+unparseable file simply loses the badge and falls back to 16:9.
 
 The player is click-to-start (`preload="metadata"`), so the landing card
 fetches only the poster; the video downloads when someone presses play. It also
@@ -123,6 +133,29 @@ im.crop((0, 78, im.width, im.height)).save('img/vid/nib-poster.jpg', quality=82)
 78px is the tab strip plus URL bar at 1276×718. Cropping it matters more than
 it looks: card previews use `object-position: top left`, so an uncropped poster
 would show nothing but browser chrome.
+
+### Trimming and re-encoding a source video
+
+A static asset is capped at 25 MiB, which a 14-minute screen recording exceeds.
+`verval-p3h-trim.mp4` was cut from `verval-p3h-2026.mp4` (2:00 → 13:57) and
+re-encoded with a static ffmpeg — no system install, just:
+
+```bash
+python3 -m pip install --target=/path/to/tools imageio-ffmpeg
+```
+
+```bash
+ffmpeg -ss 120 -t 717 -i verval-p3h-2026.mp4 \
+  -vf fps=15 -an -c:v libx264 -crf 23 -maxrate 250k -bufsize 500k \
+  -preset veryfast -pix_fmt yuv420p -movflags +faststart verval-p3h-trim.mp4
+```
+
+`-maxrate`/`-bufsize` (VBV) is the load-bearing part. CRF alone targets a
+quality level and lets the size land where it may — on this footage it drifted
+past the cap, which is only discovered at deploy time. The ceiling bounds the
+file regardless of content, which in turn means the preset can be traded for
+speed without risking an undeployable file. `-an` drops the audio: the player
+is muted anyway, and it was 128 kb/s of the original 402.
 
 ## The viewer
 
