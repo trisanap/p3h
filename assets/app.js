@@ -29,6 +29,13 @@
   var reduceMotion = window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  /* Inline glyph for cards that leave the site -- no icon font, no extra request. */
+  var EXTERNAL_ICON =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/>' +
+    '<path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/></svg>';
+
   /* ----------------------------------------------------------- landing page */
 
   function initLanding() {
@@ -36,8 +43,10 @@
     if (!mount) return;
 
     var keys = Object.keys(GALLERIES);
-    if (!keys.length) {
-      mount.appendChild(el("p", { class: "lede", text: "No galleries found. Run build.py first." }));
+    var links = window.EXTERNAL_LINKS || [];
+
+    if (!keys.length && !links.length) {
+      mount.appendChild(el("p", { class: "lede", text: "Nothing to show. Run build.py first." }));
       return;
     }
 
@@ -55,6 +64,28 @@
           el("div", { class: "card-meta" }, [
             el("span", { class: "pill", text: g.images.length + " langkah" }),
             el("span", { text: "Buka presentasi →" })
+          ])
+        ])
+      );
+    });
+
+    /* Cards that leave the site: a glyph stands in for the thumbnail strip, and
+       the destination domain is shown so the click is not a surprise. */
+    links.forEach(function (link) {
+      mount.appendChild(
+        el("a", {
+          class: "card card-external",
+          href: link.url,
+          target: "_blank",
+          rel: "noopener noreferrer"
+        }, [
+          el("div", { class: "card-icon", html: EXTERNAL_ICON }),
+          el("h2", { text: link.title }),
+          el("p", { text: link.subtitle || "" }),
+          el("div", { class: "card-meta" }, [
+            el("span", { class: "pill pill-alt", text: link.tag || "Tautan" }),
+            el("span", { text: (link.site || "") + " ↗" }),
+            el("span", { class: "visually-hidden", text: " (buka di tab baru)" })
           ])
         ])
       );

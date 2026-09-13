@@ -285,3 +285,13 @@ window.GALLERIES = {
     ]
   }
 };
+
+window.EXTERNAL_LINKS = [
+  {
+    "title": "Langkah Verval Pendamping PPH",
+    "subtitle": "Cara proses verval pendampingan PPH: berada di lokasi produksi bersama Pelaku Usaha / Penyelia Halal.",
+    "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
+    "site": "p3jph.biz.id",
+    "tag": "Panduan"
+  }
+];

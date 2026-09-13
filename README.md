@@ -54,6 +54,28 @@ OVERRIDES = {
 
 Then re-run `python3 build.py`.
 
+### Adding a card that links elsewhere
+
+The landing page can also show cards pointing at pages hosted on another site
+(the `Langkah Verval Pendamping PPH` card points at `p3jph.biz.id`). Add an
+entry to `EXTERNAL_LINKS` in `build.py`:
+
+```python
+EXTERNAL_LINKS = [
+    {
+        "title": "Langkah Verval Pendamping PPH",
+        "subtitle": "Short description shown under the title.",
+        "url": "https://www.p3jph.biz.id/informasi/cara-verval-p3h",
+        "site": "p3jph.biz.id",   # shown on the card so the click is not a surprise
+        "tag": "Panduan",
+    },
+]
+```
+
+These render with a glyph panel in place of the thumbnail strip, open in a new
+tab, and are not galleries — no images are copied and no viewer is involved.
+An empty list removes them entirely.
+
 ## The viewer
 
 Click any thumbnail (or **Mulai presentasi**) to open the presentation overlay.

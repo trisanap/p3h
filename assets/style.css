@@ -93,7 +93,11 @@ h1 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 10px; }
 }
 
 .card {
-  display: block;
+  /* Flex column so .card-meta can be pushed to the bottom: titles and
+     descriptions differ in length, and grid stretch alone leaves the badge
+     rows ragged across a row. */
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
@@ -115,7 +119,9 @@ h1 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 10px; }
 .card-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  margin-top: auto;
   font-size: 13px;
   color: var(--muted);
 }
@@ -145,6 +151,28 @@ h1 { font-size: clamp(26px, 4.2vw, 40px); line-height: 1.15; margin: 0 0 10px; }
   object-position: top left;
   background: var(--surface-2);
   opacity: .9;
+}
+
+/* Cards that link off-site: a glyph panel stands in for the thumbnail strip,
+   sized to match it so all the cards in the row stay aligned. */
+.card-icon {
+  height: 104px;
+  margin-bottom: 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 140% at 20% 0%, rgba(71, 27, 80, .95), transparent 68%),
+    linear-gradient(135deg, rgba(4, 124, 58, .40), rgba(157, 107, 234, .22));
+  display: grid;
+  place-items: center;
+  color: var(--accent-soft);
+}
+.card-icon svg { width: 42px; height: 42px; }
+
+.pill-alt {
+  background: rgba(77, 172, 119, .15);
+  border-color: rgba(77, 172, 119, .42);
+  color: #86d9a9;
 }
 
 /* ---------- Gallery grid ---------- */
