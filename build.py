@@ -7,6 +7,7 @@ Re-run any time you add, rename, or delete screenshots.
 
 To customise a step's caption, edit OVERRIDES below (key = output filename).
 """
+import hashlib
 import json
 import os
 import re
@@ -71,6 +72,29 @@ ACRONYMS = {
 }
 
 
+def digest(path):
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.digest()
+
+
+def differs(src, dst):
+    """True if dst is missing or its bytes differ from src.
+
+    Compares content, not mtime. A re-saved image can end up with an mtime
+    older than the copy already in the repo -- restored backups, editors that
+    preserve timestamps, rsync -t -- and an mtime check would silently leave a
+    stale image committed. Size is compared first since it is free.
+    """
+    if not os.path.exists(dst):
+        return True
+    if os.path.getsize(src) != os.path.getsize(dst):
+        return True
+    return digest(src) != digest(dst)
+
+
 def natural_key(path):
     """Sort key that orders 2 before 10 and 10-sub3-4 before 10-sub3-4a."""
     stem, ext = os.path.splitext(os.path.basename(path))
@@ -122,7 +146,7 @@ def build_gallery(key, spec):
         out_name = rename.get(name, name)
         dst = os.path.join(out_dir, out_name)
         src = os.path.join(src_dir, name)
-        if not os.path.exists(dst) or os.path.getmtime(src) > os.path.getmtime(dst):
+        if differs(src, dst):
             shutil.copy2(src, dst)
             copied += 1
         stem = os.path.splitext(out_name)[0]
