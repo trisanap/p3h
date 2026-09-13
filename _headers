@@ -1,15 +1,17 @@
-# Cloudflare static-asset headers.
-# Filenames are stable (step numbers), not content-hashed, so caches are
-# deliberately short -- replacing a screenshot shows up within the hour.
+# Cloudflare static-asset response headers.
+#
+# Note: when several patterns match a request, Cloudflare merges their headers
+# and comma-joins duplicates. Two rules setting Cache-Control on the same path
+# would produce an invalid header, so each path gets exactly one rule.
+#
+# Filenames here are stable step numbers, not content hashes, so re-capturing a
+# screenshot reuses the same URL -- caches are kept short on purpose.
 
 /img/*
   Cache-Control: public, max-age=86400
 
-/assets/manifest.js
-  Cache-Control: public, max-age=300
-
 /assets/*
-  Cache-Control: public, max-age=3600
+  Cache-Control: public, max-age=300
 
 /*
   X-Content-Type-Options: nosniff

@@ -84,12 +84,17 @@ in a browser.
 
 The whole tree is static — commit it and serve the repo root. On Cloudflare
 Workers, point static assets at the repository root; `_headers` sets caching
-(a day for `img/`, an hour for `assets/`). Those are deliberately short:
+(a day for `img/`, five minutes for `assets/`). Those are deliberately short:
 filenames are stable step numbers rather than content hashes, so re-capturing
 a screenshot reuses the same URL and a long cache would serve the old one.
 
-The only non-asset files are `build.py`, `README.md`, and `_headers`; exclude
-them from the served directory if you prefer.
+Each path gets exactly one `Cache-Control` rule on purpose — when several
+patterns match, Cloudflare merges their headers and comma-joins duplicates,
+which would yield an invalid `Cache-Control` with two `max-age` values.
+
+`.assetsignore` keeps `build.py` and this README from being served (wrangler
+>= 3.77.0). Do not add `_headers` to it — Workers parses that file at deploy
+time and never serves it as an asset.
 
 ## Notes
 

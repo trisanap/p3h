@@ -1,0 +1,8 @@
+# Files that live in this repo but should not be served as public assets.
+# Wrangler skips anything listed here (gitignore syntax, wrangler >= 3.77.0).
+#
+# Do NOT add _headers to this file -- Workers parses it at deploy time to apply
+# the response headers, and it is not served as an asset regardless.
+
+build.py
+README.md
