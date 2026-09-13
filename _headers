@@ -1,0 +1,16 @@
+# Cloudflare static-asset headers.
+# Filenames are stable (step numbers), not content-hashed, so caches are
+# deliberately short -- replacing a screenshot shows up within the hour.
+
+/img/*
+  Cache-Control: public, max-age=86400
+
+/assets/manifest.js
+  Cache-Control: public, max-age=300
+
+/assets/*
+  Cache-Control: public, max-age=3600
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

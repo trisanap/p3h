@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""
+Build the SiHalal gallery: copy screenshots into img/ and generate the manifest.
+
+Run from the repo root:   python3 build.py
+Re-run any time you add, rename, or delete screenshots.
+
+To customise a step's caption, edit OVERRIDES below (key = output filename).
+"""
+import json
+import os
+import re
+import shutil
+import sys
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+# Source folders on this machine. Change these if you move the originals.
+SOURCES = {
+    "pu":  "/home/trisan/Pictures/sihalal-pu",
+    "p3h": "/home/trisan/Pictures/sihalal-p3h",
+}
+
+GALLERIES = {
+    "pu": {
+        "title": "Pendaftaran Pelaku Usaha (PU)",
+        "subtitle": "Alur pendaftaran akun dan pengajuan sertifikat halal untuk Pelaku Usaha",
+        "dir": "img/pu",
+        "page": "sihalal-pu.html",
+    },
+    "p3h": {
+        "title": "Verifikasi P3H",
+        "subtitle": "Alur verifikasi dan validasi oleh P3H pada aplikasi SiHalal",
+        "dir": "img/p3h",
+        "page": "sihalal-p3h.html",
+    },
+}
+
+# Filenames that were mis-numbered at capture time: {source name: output name}.
+# 01-sub5-1.png is the "Bahan" tab of step 10 (sub5), captured just before
+# 10-sub5-1a.png -- the "01-" prefix is a typo for "10-".
+RENAMES = {
+    "pu": {"01-sub5-1.png": "10-sub5-1.png"},
+}
+
+# Optional per-image caption overrides, keyed by output filename.
+# e.g. OVERRIDES["pu"]["10-sub9-ok.png"] = "Pengajuan berhasil dikirim"
+OVERRIDES = {"pu": {}, "p3h": {}}
+
+# Words that should keep their original casing in generated captions.
+ACRONYMS = {
+    "pu": "PU", "p3h": "P3H", "p3jph": "P3JPH", "kbli": "KBLI", "oss": "OSS",
+    "ovw": "Overview", "verval": "Verval", "dash": "Dashboard", "ok": "OK",
+    "sub": "Sub", "profil": "Profil", "datapu": "Data PU", "edit": "Edit",
+    "pabrik": "Pabrik", "penyelia": "Penyelia", "questioner": "Kuesioner",
+    "update": "Update", "npm": "NPM", "npwp": "NPWP",
+}
+
+
+def natural_key(path):
+    """Sort key that orders 2 before 10 and 10-sub3-4 before 10-sub3-4a."""
+    stem, ext = os.path.splitext(os.path.basename(path))
+    chunks = re.split(r"(\d+)", stem)
+    key = [(0, int(c), "") if c.isdigit() else (1, 0, c.lower())
+           for c in chunks if c != ""]
+    return (key, ext.lower())
+
+
+def humanize(stem):
+    """'10-sub5-2a' -> '10 · Sub 5 · 2a'"""
+    parts = [p for p in stem.split("-") if p]
+    if not parts:
+        return stem
+    step, rest = parts[0], parts[1:]
+    words = []
+    for part in rest:
+        m = re.match(r"^([a-z]+)(\d+)([a-z]?)$", part)          # sub5 / profil1 / 2a
+        if m:
+            base, num, suffix = m.groups()
+            word = ACRONYMS.get(base, base.capitalize())
+            words.append(f"{word} {num}{suffix}")
+        else:
+            m = re.match(r"^(\d+)([a-z]?)$", part)               # 4 / 4a
+            if m:
+                words.append(f"{m.group(1)}{m.group(2)}")
+            else:
+                words.append(ACRONYMS.get(part, part.capitalize()))
+    return " · ".join([step] + words)
+
+
+def build_gallery(key, spec):
+    src_dir = SOURCES[key]
+    if not os.path.isdir(src_dir):
+        print(f"  ! source missing, skipping: {src_dir}", file=sys.stderr)
+        return None
+
+    rename = RENAMES.get(key, {})
+    out_dir = os.path.join(ROOT, spec["dir"])
+    os.makedirs(out_dir, exist_ok=True)
+
+    sources = sorted(
+        (f for f in os.listdir(src_dir) if f.lower().endswith(".png")),
+        key=natural_key,
+    )
+
+    entries, copied = [], 0
+    for name in sources:
+        out_name = rename.get(name, name)
+        dst = os.path.join(out_dir, out_name)
+        src = os.path.join(src_dir, name)
+        if not os.path.exists(dst) or os.path.getmtime(src) > os.path.getmtime(dst):
+            shutil.copy2(src, dst)
+            copied += 1
+        stem = os.path.splitext(out_name)[0]
+        entries.append({
+            "f": out_name,
+            "t": OVERRIDES.get(key, {}).get(out_name, humanize(stem)),
+        })
+
+    # Re-sort by output name so a rename lands in the right place.
+    entries.sort(key=lambda e: natural_key(e["f"]))
+
+    # Drop stale files that are no longer in the source set.
+    keep = {e["f"] for e in entries}
+    removed = 0
+    for existing in os.listdir(out_dir):
+        if existing not in keep:
+            os.remove(os.path.join(out_dir, existing))
+            removed += 1
+
+    print(f"  {key}: {len(entries)} images ({copied} copied, {removed} stale removed)")
+    return {"title": spec["title"], "subtitle": spec["subtitle"],
+            "page": spec["page"], "dir": spec["dir"], "images": entries}
+
+
+def main():
+    print("Building SiHalal gallery")
+    manifest = {}
+    for key, spec in GALLERIES.items():
+        result = build_gallery(key, spec)
+        if result:
+            manifest[key] = result
+
+    out = os.path.join(ROOT, "assets", "manifest.js")
+    with open(out, "w", encoding="utf-8") as fh:
+        fh.write("/* Generated by build.py -- do not edit by hand. */\n")
+        fh.write("window.GALLERIES = ")
+        json.dump(manifest, fh, ensure_ascii=False, indent=2)
+        fh.write(";\n")
+    print(f"  wrote assets/manifest.js ({len(manifest)} galleries)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
